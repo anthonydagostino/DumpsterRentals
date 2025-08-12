@@ -31,12 +31,27 @@ namespace DagsDumps.API.Controllers
             return Ok(booking);
         }
 
-        // POST: api/Bookings
         [HttpPost]
         public ActionResult<Booking> CreateBooking(Booking booking)
         {
+            if (booking.PickUpDate <= booking.DropOffDate == false)
+                return BadRequest("PickUpDate must be after DropOffDate.");
+
+            var customerExists = _context.Customers.Any(c => c.CustomerId == booking.CustomerId);
+            var dumpsterExists = _context.Dumpsters.Any(d => d.DumpsterId == booking.DumpsterId);
+            if (!customerExists || !dumpsterExists)
+                return BadRequest("Invalid CustomerId or DumpsterId.");
+
+            var conflicts = _context.Bookings.Any(b =>
+                b.DumpsterId == booking.DumpsterId &&
+                !(b.PickUpDate <= booking.DropOffDate || b.DropOffDate >= booking.PickUpDate));
+
+            if (conflicts)
+                return Conflict("Dumpster is not available for the selected dates.");
+
             _context.Bookings.Add(booking);
             _context.SaveChanges();
+
             return CreatedAtAction(nameof(GetBooking), new { id = booking.BookingId }, booking);
         }
 

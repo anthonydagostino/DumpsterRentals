@@ -64,5 +64,30 @@ namespace DagsDumps.API.Controllers
             _context.SaveChanges();
             return NoContent();
         }
+
+        // GET: api/dumpsters/available?from=2025-08-10&to=2025-08-12&sizeYards=10
+        [HttpGet("available")]
+        public ActionResult<IEnumerable<Dumpster>> GetAvailable(
+            [FromQuery] DateTime from,
+            [FromQuery] DateTime to,
+            [FromQuery] int? sizeYards)
+        {
+            if (to <= from) return BadRequest("End date must be after start date.");
+
+            var q = _context.Dumpsters.AsQueryable();
+            if (sizeYards.HasValue)
+                q = q.Where(d => d.SizeYards == sizeYards.Value);
+
+            // overlap if NOT (existing ends <= start OR existing starts >= end)
+            var overlappingDumpsterIds = _context.Bookings
+                .Where(b => !(b.PickUpDate <= from || b.DropOffDate >= to))
+                .Select(b => b.DumpsterId);
+
+            var available = q.Where(d => !overlappingDumpsterIds.Contains(d.DumpsterId))
+                             .ToList();
+
+            return Ok(available);
+        }
+
     }
 }

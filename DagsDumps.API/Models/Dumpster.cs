@@ -12,6 +12,7 @@ namespace DagsDumps.API.Models
         public decimal OverageFeePerTon { get; set; }
         public bool IsAvailable { get; set; } = true;
 
-        public ICollection<Booking> Bookings { get; set; }
+        public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
+
     }
 }
