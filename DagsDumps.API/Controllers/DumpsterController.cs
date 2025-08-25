@@ -32,6 +32,9 @@ namespace DagsDumps.API.Controllers
         [HttpPost]
         public ActionResult<Dumpster> CreateDumpster(Dumpster dumpster)
         {
+            // Force EF/SQL Server to generate the primary key
+            dumpster.DumpsterId = 0;
+
             _context.Dumpsters.Add(dumpster);
             _context.SaveChanges();
             return CreatedAtAction(nameof(GetDumpster), new { id = dumpster.DumpsterId }, dumpster);
