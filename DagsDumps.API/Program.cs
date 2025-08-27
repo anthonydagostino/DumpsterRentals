@@ -4,11 +4,10 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Register EF Core with SQL Server
+// 1) Services
 builder.Services.AddDbContext<DagsDumpsDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Add controllers and Swagger
 builder.Services
     .AddControllers()
     .AddJsonOptions(o =>
@@ -18,9 +17,19 @@ builder.Services
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// CORS: allow Vite dev server
+var allowVite = "_allowVite";
+builder.Services.AddCors(o =>
+{
+    o.AddPolicy(allowVite, p =>
+        p.WithOrigins("http://localhost:5173")
+         .AllowAnyHeader()
+         .AllowAnyMethod());
+});
+
 var app = builder.Build();
 
-// Enable Swagger in dev mode
+// 2) Middleware
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -29,14 +38,19 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+// CORS must run before MapControllers
+app.UseCors(allowVite);
+
 app.UseAuthorization();
 
-// Map controller endpoints
 app.MapControllers();
 
-using (var scope = app.Services.CreateScope())
+// 3) (Optional) Seed dev data once, at startup
+if (app.Environment.IsDevelopment())
 {
+    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<DagsDumpsDbContext>();
+
     if (!db.Dumpsters.Any())
     {
         db.Dumpsters.AddRange(
@@ -44,19 +58,19 @@ using (var scope = app.Services.CreateScope())
             new Dumpster { SizeYards = 15, Description = "Medium", Price = 429, MaxWeightTons = 2.0f, OverageFeePerTon = 120 },
             new Dumpster { SizeYards = 20, Description = "Large", Price = 499, MaxWeightTons = 3.0f, OverageFeePerTon = 120 }
         );
-        db.SaveChanges();
     }
 
     if (!db.Customers.Any())
     {
         db.Customers.AddRange(
-            new Customer { FullName = "Anthony D'Agostino", PhoneNumber = "732-123-4567", Email = "anthonysdagostino@gmail.com", Address = "123 Mario Party Lane"},
+            new Customer { FullName = "Anthony D'Agostino", PhoneNumber = "732-123-4567", Email = "anthonysdagostino@gmail.com", Address = "123 Mario Party Lane" },
             new Customer { FullName = "John Smith", PhoneNumber = "609-987-6543", Email = "john23smith@gmail.com", Address = "321 Pear Drive" },
             new Customer { FullName = "Joe Burger", PhoneNumber = "108-222-3333", Email = "joeyburger1@gmail.com", Address = "92 Trail Court" }
         );
-        db.SaveChanges();
     }
-}
 
+    if (db.ChangeTracker.HasChanges())
+        db.SaveChanges();
+}
 
 app.Run();
